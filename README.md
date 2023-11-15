@@ -71,7 +71,7 @@ The SerialDataLink library offers robust serial communication for Arduino, ideal
 
 ## Usage Example
 ```
-#include "SerialDataLink.h"
+#include <SerialDataLink.h>
 
 // Initialize SerialDataLink for transmission and reception
 SerialDataLink dataLinkTransmit(Serial2, 0x01, 10);
