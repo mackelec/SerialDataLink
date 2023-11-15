@@ -17,12 +17,11 @@ The SerialDataLink library offers robust serial communication for Arduino, ideal
 ## Methods
 
 ### Constructor
-- `SerialDataLink(Stream &serial, uint8_t address, uint8_t maxIndex, bool enableRetransmit = false)`
+- `SerialDataLink(Stream &serial, uint8_t address, uint8_t maxIndex)`
   - Initializes a new SerialDataLink object.
   - `serial`: Reference to the serial stream.
   - `address`: Address of the device in the network.
   - `maxIndex`: Maximum index for the data array.
-  - `enableRetransmit`: Enables or disables automatic retransmission.
 
 ### Transmission Control
 - `void run()`
