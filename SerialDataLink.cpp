@@ -167,7 +167,6 @@ bool SerialDataLink::sendNextByte()
     return false;
   }
   
-  serial.write(buffer[txBufferIndex]);
   txBufferIndex ++;
   if (txBufferIndex => bufferIndex)
   {
