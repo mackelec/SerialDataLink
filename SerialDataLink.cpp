@@ -169,7 +169,7 @@ bool SerialDataLink::sendNextByte()
   
   serial.write(buffer[txBufferIndex]);
   txBufferIndex ++;
-  if (txBufferIndex == bufferSize)
+  if (txBufferIndex => bufferIndex)
   {
     isTransmitting = false;
     bufferIndex = 0;
