@@ -38,13 +38,24 @@ const uint16_t crcTable[256] = {
     33299, 534, 540, 33305, 520, 33293, 33287, 514
 };
 
-
+union Convert
+{
+  uint16_t u16;
+  int16_t i16;
+  struct
+  {
+    byte low;
+    byte high;
+  };
+}convert;
 
 SerialDataLink::SerialDataLink(Stream &serial,uint8_t address, uint8_t maxIndex,  bool enableRetransmit)
   : serial(serial), maxIndex(maxIndex), intendedAddress(address), retransmitEnabled(enableRetransmit)
 {
   memset(dataArray, 0, sizeof(dataArray));
   memset(dataUpdated, 0, sizeof(dataUpdated));
+  memset(lastUpdateTime,0,sizeof(lastUpdateTime));
+  memset(dataUpdated,0,sizeof(dataUpdated));
 }
 
 void SerialDataLink::updateData(uint8_t index, int16_t value)
@@ -71,7 +82,7 @@ void SerialDataLink::run()
     sendNextByte();
   }
   // Check for conditions to construct and send a new packet
-  else if (1/* conditions for sending new data */)
+  else 
   {
     constructPacket();
   }
@@ -116,41 +127,57 @@ void SerialDataLink::constructPacket()
     bufferIndex = 0;
     addToBuffer(headerChar);
     addToBuffer(intendedAddress);
-
     unsigned long currentTime = millis();
+    int count = bufferIndex;
     for (uint8_t i = 0; i < maxIndex; i++)
     {
       if (dataUpdated[i] || (currentTime - lastUpdateTime[i] >= updateInterval))
       {
         addToBuffer(i);
-        addToBuffer(dataArray[i] >> 8);
-        addToBuffer(dataArray[i] & 0xFF);
+        convert.i16 = dataArray[i];
+        addToBuffer(convert.high);
+        addToBuffer(convert.low);
         dataUpdated[i] = false;
         lastUpdateTime[i] = currentTime;
       }
     }
-
+    if (count == bufferIndex)
+    {
+      bufferIndex = 0;
+      return;
+    }
     addToBuffer(eotChar);
     uint16_t crc = calculateCRC16(buffer, bufferIndex);
-    addToBuffer(crc >> 8);
-    addToBuffer(crc & 0xFF);
+    convert.u16 = crc;
+    addToBuffer(convert.high);
+    addToBuffer(convert.low);
 
     isTransmitting = true;
+    
   }
 }
 
 bool SerialDataLink::sendNextByte()
 {
-  if (isTransmitting && bufferIndex < bufferSize)
+  if (!isTransmitting) return false;
+  if (bufferIndex >= bufferSize || txBufferIndex >= bufferSize)
   {
-    serial.write(buffer[bufferIndex++]);
-    if (bufferIndex == bufferSize)
-    {
-      isTransmitting = false;
-      bufferIndex = 0;
-      return true; // Packet sent
-    }
+    bufferIndex = 0;
+    isTransmitting = false;
+    return false;
   }
+  
+  serial.write(buffer[txBufferIndex]);
+  txBufferIndex ++;
+  if (txBufferIndex == bufferSize)
+  {
+    isTransmitting = false;
+    bufferIndex = 0;
+    txBufferIndex = 0;
+    Serial << "Packet sent" << endl;
+    return true; // Packet sent
+  }
+ 
   return false; // Packet not yet fully sent
 }
 
@@ -256,6 +283,7 @@ void SerialDataLink::read()
 {
   while (serial.available()) 
   {
+    //Serial.print(".");
     if (millis() - lastHeaderTime > PACKET_TIMEOUT  && receiveBufferIndex > 0) 
     {
       // Timeout occurred, reset buffer and pointer

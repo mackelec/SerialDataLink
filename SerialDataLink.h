@@ -13,6 +13,8 @@
 #define SERIALDATALINK_H
 
 #include <Arduino.h>
+#include <Streaming.h>
+#include <PString.h>
 
 /**
  * @class SerialDataLink
@@ -67,6 +69,7 @@ private:
   static const uint8_t bufferSize = 128;  
   uint8_t buffer[bufferSize];
   uint8_t bufferIndex;
+  uint8_t txBufferIndex=0;
   Stream &serial;
 
   static const uint8_t dataArraySize = 20;  
@@ -74,7 +77,7 @@ private:
   int16_t dataArray[dataArraySize];
   
   bool dataUpdated[dataArraySize];
-  unsigned long updateInterval = 1000; 
+  unsigned long updateInterval = 500; 
   unsigned long lastTransmissionTime;
   unsigned long ACK_TIMEOUT = 100; 
 
