@@ -78,6 +78,9 @@ void loop() {
   if (millis() != lastMillis ) 
   {
     lastMillis = millis();
+    /*
+    *    run() should be polled at about the serial bit rate 
+    */
     dataLinkPrimary.run();
     dataLinkSecondary.run();
   }  
