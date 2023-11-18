@@ -1,5 +1,6 @@
 SerialDataLink	KEYWORD1
-updateData	    KEYWORD2
-run	            KEYWORD2
-read	          KEYWORD2
-readData        KEYWORD2
+updateData	           KEYWORD2
+run	                   KEYWORD2
+read	                 KEYWORD2
+getReceivedData        KEYWORD2
+checkNewData           KEYWORD2
