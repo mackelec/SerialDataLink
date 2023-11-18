@@ -1,12 +1,12 @@
 # SerialDataLink
 
-SerialDataLink is a half-duplex serial variables transfer library for Arduino, designed for efficient and reliable, automatic transmission of int16 variables between controllers. It uses a non-blocking, polling-based approach, suitable for scenarios that require continuous monitoring and variable data transfer.
+SerialDataLink is a half-duplex serial - "variables transfer" library for Arduino, designed for efficient and reliable, automatic transmission of int16 variables between controllers. It uses a non-blocking, polling-based approach, suitable for scenarios that require continuous monitoring and variable data transfer.
 
 ## Features
 
-- **Half-Duplex Communication**: Allows bidirectional data transfer but not simultaneously.
+- **Half-Duplex Communication**: Allows half duplex bidirectional data transfer.
 - **Non-Blocking Operation**: Uses a polling mechanism for data handling.
-- **Error Checking**: Incorporates transmission and reception error checks.
+- **Error Checking**: Incorporates transmission and reception CRC16 data and framing error checks.
 - **Flexible Data Handling**: Transmits only the variables which values have change or reached update time..
 
 ### Example
@@ -139,13 +139,9 @@ void loop() {
 | `setHeaderChar` | `char header` | Sets the character used to denote the start of a packet. |
 | `setEOTChar` | `char eot` | Sets the character used to denote the end of a packet. |
 
-## Contributing
 
-Contributions to the `SerialDataLink` library are welcome. Please follow the standard GitHub pull request workflow. Ensure your code adheres to the existing style and all tests pass.
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## License
-This project is licensed under the MIT License.
