@@ -1,9 +1,54 @@
+/**
+ * @file SerialDataLink.h
+ * @brief Half-Duplex Serial Data Link for Arduino
+ *
+ * This file contains the definition of the SerialDataLink class, designed to facilitate 
+ * half-duplex communication between Arduino controllers. The class employs a non-blocking, 
+ * poll-based approach to transmit and receive data, making it suitable for applications 
+ * where continuous monitoring and variable transfer between controllers are required.
+ *
+ * The half-duplex nature of this implementation allows for data transfer in both directions, 
+ * but not simultaneously, ensuring a controlled communication flow and reducing the likelihood 
+ * of data collision.
+ *
+ *
+ * @author MackElec
+ * @web https://github.com/mackelec/SerialDataLink
+ * @license MIT
+ */
+
+// ... Class definition ...
+
+/**
+ * @class SerialDataLink
+ * @brief Class for managing half-duplex serial communication.
+ *
+ * Provides functions to send and receive data in a half-duplex manner over a serial link.
+ * It supports non-blocking operation with a polling approach to check for new data and 
+ * transmission errors.
+ *
+ * Public Methods:
+ * - SerialDataLink(): Constructor to initialize the communication parameters.
+ * - run(): Main method to be called frequently to handle data transmission and reception.
+ * - updateData(): Method to update data to be transmitted.
+ * - getReceivedData(): Retrieves data received from the serial link.
+ * - checkNewData(): Checks if new data has been received.
+ * - checkTransmissionError(): Checks for transmission errors.
+ * - checkReadError(): Checks for read errors.
+ * - setUpdateInterval(): Sets the interval for data updates.
+ * - setAckTimeout(): Sets the timeout for acknowledgments.
+ * - setPacketTimeout(): Sets the timeout for packet reception.
+ * - setHeaderChar(): Sets the character used to denote the start of a packet.
+ * - setEOTChar(): Sets the character used to denote the end of a packet.
+ */
+
+
+
+
 #ifndef SERIALDATALINK_H
 #define SERIALDATALINK_H
 
 #include <Arduino.h>
-#include <Streaming.h>
-#include <PString.h>
 
 class SerialDataLink {
 public:
