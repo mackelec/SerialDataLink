@@ -49,52 +49,52 @@ union Convert
   };
 }convert;
 
-SerialDataLink::SerialDataLink(Stream &serial,uint8_t address, uint8_t maxIndex,  bool enableRetransmit)
-  : serial(serial), maxIndex(maxIndex), intendedAddress(address), retransmitEnabled(enableRetransmit)
-{
-  memset(dataArray, 0, sizeof(dataArray));
-  memset(dataUpdated, 0, sizeof(dataUpdated));
-  memset(lastUpdateTime,0,sizeof(lastUpdateTime));
-  memset(dataUpdated,0,sizeof(dataUpdated));
+
+
+
+
+// Constructor
+SerialDataLink::SerialDataLink(Stream &serial, uint8_t transmitID, uint8_t receiveID, uint8_t maxIndexTX, uint8_t maxIndexRX, bool enableRetransmit)
+    : serial(serial), transmitID(transmitID), receiveID(receiveID), maxIndexTX(maxIndexTX), maxIndexRX(maxIndexRX), retransmitEnabled(enableRetransmit) {
+    // Initialize buffers and state variables
+    txBufferIndex = 0;
+    isTransmitting = false;
+    isReceiving = false;
+    transmissionError = false;
+    readError = false;
+    newData = false;
+
+    // Initialize data arrays and update flags
+
+    memset(dataArrayTX, 0, sizeof(dataArrayTX));
+    memset(dataArrayRX, 0, sizeof(dataArrayRX));
+    memset(dataUpdated, 0, sizeof(dataUpdated));
+    memset(lastSent   , 0, sizeof(lastSent   ));
+
+    // Additional initialization as required
 }
 
 void SerialDataLink::updateData(uint8_t index, int16_t value)
 {
-  if (index < maxIndex)
+  if (index < maxIndexTX)
   {
-    if (dataArray[index] != value)
+    if (dataArrayTX[index] != value)
     {
-      dataArray[index] = value;
+      dataArrayTX[index] = value;
       dataUpdated[index] = true;
-      lastUpdateTime[index] = millis();
+      lastSent[index] = millis();
     }
   }
 }
 
-
-
-
-void SerialDataLink::run()
+int16_t SerialDataLink::getReceivedData(uint8_t index) 
 {
-  // Handle sending the next byte if currently transmitting
-  if (isTransmitting)
-  {
-    sendNextByte();
+  if (index < dataArraySizeRX) {
+    return dataArrayRX[index];
+  } else {
+    // Handle the case where the index is out of bounds
+    return -1; 
   }
-  // Check for conditions to construct and send a new packet
-  else 
-  {
-    constructPacket();
-  }
-
-  // Check for ACK timeouts
-  if (isTransmitting && (millis() - lastTransmissionTime > ACK_TIMEOUT))
-  {
-    handleTransmissionTimeout();
-  }
-
-  // Check for incoming commands or ACKs
-  checkForCommands();
 }
 
 bool SerialDataLink::checkTransmissionError(bool resetFlag) 
@@ -106,87 +106,406 @@ bool SerialDataLink::checkTransmissionError(bool resetFlag)
   return currentStatus;
 }
 
-void SerialDataLink::setUpdateInterval(unsigned long interval) {
-    updateInterval = interval;
+bool SerialDataLink::checkReadError(bool reset) 
+{
+  bool error = readError;
+  if (reset) {
+    readError = false;
+  }
+  return error;
 }
 
-void SerialDataLink::setAckTimeout(unsigned long timeout) {
-    ACK_TIMEOUT = timeout; // Make sure ACK_TIMEOUT is not declared as const
+
+bool SerialDataLink::checkNewData(bool resetFlag) {
+  bool currentStatus = newData;
+  if (resetFlag && newData) {
+    newData = false;
+  }
+  return currentStatus;
 }
 
-void SerialDataLink::setPacketTimeout(unsigned long timeout) {
-    PACKET_TIMEOUT = timeout; // Make sure PACKET_TIMEOUT is not declared as const
+void SerialDataLink::run() 
+{
+    switch (currentState) 
+    {
+      case DataLinkState::Idle:
+          // Decide if the device should start transmitting
+          currentState = DataLinkState::Receiving;
+          if (shouldTransmit())
+          {
+              currentState = DataLinkState::Transmitting;
+          }
+          break;
+
+        case DataLinkState::Transmitting:
+          if (isTransmitting) 
+          {
+              sendNextByte(); // Continue sending the current data
+          } 
+          else 
+          {
+              
+              constructPacket(); // Construct a new packet if not currently transmitting
+              
+              uint8_t ack; 
+              // now it is known which acknoledge need sending since last Reception
+              if (needToACK)
+              {
+                needToACK = false;
+                ack = (txBufferIndex > 5) ? ACK_RTT_CODE : ACK_CODE;
+                serial.write(ack);
+              }
+              if (needToNACK)
+              {
+                needToNACK = false;
+                ack = (txBufferIndex > 5) ? NACK_RTT_CODE : NACK_CODE;
+                serial.write(ack);
+              }
+          }
+
+          if (maxIndexTX < 1) 
+          {
+            currentState = DataLinkState::Receiving;
+          }
+          // Check if the transmission is complete
+          if (transmissionComplete) 
+          {
+            transmissionComplete = false;
+            isTransmitting = false;
+            currentState = DataLinkState::WaitingForAck; // Move to WaitingForAck state
+          }
+          break;
+
+
+        case DataLinkState::WaitingForAck:
+          if (ackTimeout())
+          {
+            // Handle ACK timeout scenario
+            transmissionError = true;
+            isTransmitting = false;
+            //handleAckTimeout();
+            //--- if no ACK's etc received may as well move to Transmitting
+            currentState = DataLinkState::Transmitting;
+          }
+          if (ackReceived()) 
+          {
+            // No data to send from the other device
+            currentState = DataLinkState::Transmitting;
+          }
+          if (requestToSend)
+          {
+            // The other device has data to send (indicated by ACK+RTT)
+            currentState = DataLinkState::Receiving;
+          }
+          break;
+
+          
+        case DataLinkState::Receiving:
+          read();
+          if (readComplete) 
+          {
+            readComplete = false;
+            // transition to transmit mode
+            currentState = DataLinkState::Transmitting;
+          }
+          break;
+
+        default:
+          currentState = DataLinkState::Idle;
+    }
 }
 
+bool SerialDataLink::shouldTransmit() 
+{
+    // Priority condition: Device with transmitID = 1 and receiveID = 0 has the highest priority
+    if (transmitID == 1 && receiveID == 0)
+    {
+        return true;
+    }
+    return false;
+}
 
 void SerialDataLink::constructPacket()
 {
+  if (maxIndexTX <1) return;
   if (!isTransmitting)
   {
     lastTransmissionTime = millis();
-    bufferIndex = 0;
-    addToBuffer(headerChar);
-    addToBuffer(intendedAddress);
+    txBufferIndex = 0; // Reset the TX buffer index
+
+    addToTxBuffer(headerChar);
+    addToTxBuffer(transmitID);
+    addToTxBuffer(0); // EOT position - place holder
     unsigned long currentTime = millis();
-    int count = bufferIndex;
-    for (uint8_t i = 0; i < maxIndex; i++)
+    int count = txBufferIndex;
+
+    for (uint8_t i = 0; i < maxIndexTX; i++)
     {
-      if (dataUpdated[i] || (currentTime - lastUpdateTime[i] >= updateInterval))
+      if (dataUpdated[i] || (currentTime - lastSent[i] >= updateInterval))
       {
-        addToBuffer(i);
-        convert.i16 = dataArray[i];
-        addToBuffer(convert.high);
-        addToBuffer(convert.low);
+        addToTxBuffer(i);
+        convert.i16 = dataArrayTX[i];
+        addToTxBuffer(convert.high);
+        addToTxBuffer(convert.low);
+
         dataUpdated[i] = false;
-        lastUpdateTime[i] = currentTime;
+        lastSent[i] = currentTime; // Update the last sent time for this index
       }
     }
-    if (count == bufferIndex)
+
+    if (count == txBufferIndex)
     {
-      bufferIndex = 0;
+      // No data was added to the buffer, so no need to send a packet
       return;
     }
-    addToBuffer(eotChar);
-    uint16_t crc = calculateCRC16(buffer, bufferIndex);
-    convert.u16 = crc;
-    addToBuffer(convert.high);
-    addToBuffer(convert.low);
 
+    addToTxBuffer(eotChar);
+    //-----  assign EOT position 
+    txBuffer[2] = txBufferIndex - 1;
+    uint16_t crc = calculateCRC16(txBuffer, txBufferIndex);
+    convert.u16 = crc;
+    addToTxBuffer(convert.high);
+    addToTxBuffer(convert.low);
     isTransmitting = true;
-    
   }
+}
+
+
+void SerialDataLink::addToTxBuffer(uint8_t byte)
+{
+    if (txBufferIndex < txBufferSize)
+    {
+        txBuffer[txBufferIndex] = byte;
+        txBufferIndex++;
+    }
 }
 
 bool SerialDataLink::sendNextByte()
 {
   if (!isTransmitting) return false;
-  if (bufferIndex >= bufferSize || txBufferIndex >= bufferSize)
+
+  if (txBufferIndex >= txBufferSize)
   {
-    bufferIndex = 0;
+    txBufferIndex = 0; // Reset the TX buffer index
     isTransmitting = false;
+    return false; // Buffer was fully sent, end transmission
+  }  
+  serial.write(txBuffer[sendBufferIndex]);
+  sendBufferIndex++;
+
+  if (sendBufferIndex >= txBufferIndex)
+  {
+    isTransmitting = false;
+    txBufferIndex = 0; // Reset the TX buffer index for the next packet
+    sendBufferIndex = 0;
+    transmissionComplete = true;
+    return true; // Packet was fully sent
+  }
+  return false; // More bytes remain to be sent
+}
+
+bool SerialDataLink::ackReceived()
+{
+    // Check if there is data available to read
+    if (serial.available() > 0) 
+    {
+        // Peek at the next byte without removing it from the buffer
+        uint8_t nextByte = serial.peek();
+
+        if (nextByte == headerChar) 
+        {
+            requestToSend = true;
+            return false;
+        }
+
+        uint8_t receivedByte = serial.read();
+
+        switch (receivedByte) 
+        {
+          case ACK_CODE:
+              // Handle standard ACK
+              return true;
+      
+          case ACK_RTT_CODE:
+              // Handle ACK with request to transmit
+              requestToSend = true;
+              return true;
+
+          case NACK_RTT_CODE:
+              requestToSend = true;
+          case NACK_CODE:
+              transmissionError = true;
+              return false;
+      
+          default:
+              break;
+      }
+
+    }
+
+    return false; // No ACK, NACK, or new packet received
+}
+
+bool SerialDataLink::ackTimeout() 
+{
+    // Check if the current time has exceeded the last transmission time by the ACK timeout period
+    if (millis() - lastTransmissionTime > ACK_TIMEOUT) {
+        return true;  // Timeout occurred
+    }
+    return false;  // No timeout
+}
+
+
+
+void SerialDataLink::read()
+{
+  if (maxIndexRX < 1) return;
+  if (serial.available()) 
+  {
+    //Serial.print(".");
+    if (millis() - lastHeaderTime > PACKET_TIMEOUT  && rxBufferIndex > 0) 
+    {
+      // Timeout occurred, reset buffer and pointer
+      rxBufferIndex = 0;
+      eotPosition = 0;
+      readError = true;
+    }
+    uint8_t incomingByte = serial.read();
+    switch (rxBufferIndex) {
+      case 0: // Looking for the header
+        if (incomingByte == headerChar) 
+        {
+          lastHeaderTime = millis();
+          rxBuffer[rxBufferIndex] = incomingByte;
+          rxBufferIndex++;
+        }
+        break;
+
+      case 1: // Looking for the address
+        if (incomingByte == receiveID) {
+          rxBuffer[rxBufferIndex] = incomingByte;
+          rxBufferIndex++;
+        } else {
+          // Address mismatch, reset to look for a new packet
+          rxBufferIndex = 0;
+        }
+        break;
+        
+      case 2: // EOT position
+        eotPosition = incomingByte;
+        rxBuffer[rxBufferIndex] = incomingByte;
+        rxBufferIndex++;
+        break;
+        
+      default:
+        // Normal data handling
+        rxBuffer[rxBufferIndex] = incomingByte;
+        rxBufferIndex++;
+        
+        if (isCompletePacket()) 
+        {
+          processPacket();
+          rxBufferIndex = 0; // Reset for the next packet
+          readComplete = true; // Indicate that read operation is complete
+        }
+
+        // Check for buffer overflow
+        if (rxBufferIndex >= rxBufferSize) 
+        {
+          rxBufferIndex = 0;
+        }
+        break;
+    }
+  }
+}
+
+bool SerialDataLink::isCompletePacket() {
+  if (rxBufferIndex - 3 < eotPosition) return false;
+  // Ensure there are enough bytes for EOT + 2-byte CRC
+  
+  // Check if the third-last byte is the EOT character
+  if (rxBuffer[eotPosition] == eotChar) 
+  {
+    return true;
+  }
+  return false;
+}
+
+bool SerialDataLink::checkCRC() 
+{
+  uint16_t receivedCrc;
+  if (rxBufferIndex < 3) 
+  {
+    // Not enough data for CRC check
     return false;
   }
+
   
-  txBufferIndex ++;
-  if (txBufferIndex => bufferIndex)
-  {
-    isTransmitting = false;
-    bufferIndex = 0;
-    txBufferIndex = 0;
-    Serial << "Packet sent" << endl;
-    return true; // Packet sent
-  }
- 
-  return false; // Packet not yet fully sent
+  convert.high = rxBuffer[rxBufferIndex - 2];
+  convert.low = rxBuffer[rxBufferIndex - 1];
+  receivedCrc = convert.u16;
+  
+  // Calculate CRC for the received data (excluding the CRC bytes themselves)
+  uint16_t calculatedCrc = calculateCRC16(rxBuffer, rxBufferIndex - 2);
+  return receivedCrc == calculatedCrc;
 }
 
-void SerialDataLink::receivedACK()
+
+void SerialDataLink::processPacket() 
 {
-  isTransmitting = false;
-  // Additional logic for post-ACK processing if needed
+
+  if (!checkCRC()) {
+    // CRC check failed, handle the error
+    readError = true;
+    return;
+  }
+
+  // Start from index 3 to skip the SOT and ADDRESS and EOT Position characters
+  uint8_t i = 3; 
+  while (i < eotPosition) 
+  {
+    uint8_t arrayID = rxBuffer[i++];
+    
+    // Make sure there's enough data for a complete int16 (2 bytes)
+    if (i + 1 >= rxBufferIndex) {
+      readError = true;
+      needToNACK = true;
+      return; // Incomplete packet or buffer overflow
+    }
+
+    // Combine the next two bytes into an int16 value
+    int16_t value = (int16_t(rxBuffer[i]) << 8) | int16_t(rxBuffer[i + 1]);
+    i += 2;
+
+    // Handle the array ID and value here
+    if (arrayID < dataArraySizeRX) {
+      dataArrayRX[arrayID] = value;
+    } 
+    else 
+    {
+      // Handle invalid array ID
+      readError = true;
+      needToNACK = true;
+      return;
+    }
+    newData = true;
+    needToACK = true;
+  }
 }
 
 
+
+void SerialDataLink::setUpdateInterval(unsigned long interval) {
+    updateInterval = interval;
+}
+
+void SerialDataLink::setAckTimeout(unsigned long timeout) {
+    ACK_TIMEOUT = timeout; 
+}
+
+void SerialDataLink::setPacketTimeout(unsigned long timeout) {
+    PACKET_TIMEOUT = timeout; 
+}
 
 void SerialDataLink::setHeaderChar(char header)
 {
@@ -198,226 +517,7 @@ void SerialDataLink::setEOTChar(char eot)
   eotChar = eot;
 }
 
-void SerialDataLink::setACKChar(char ack)
-{
-  ackChar = ack;
-}
 
-void SerialDataLink::addToBuffer(uint8_t byte)
-{
-  if (bufferIndex < bufferSize)
-  {
-    buffer[bufferIndex] = byte;
-    bufferIndex++;
-  }
-}
-
-
-void SerialDataLink::checkForCommands()
-{
-  while (serial.available() > 1) // Checking for at least 2 bytes (size of 0xFEED)
-  {
-    // Peek at the next byte without removing it from the serial buffer
-    char nextChar = serial.peek();
-
-    // Check for ACK character
-    if (nextChar == ackChar)
-    {
-      serial.read(); // Remove the ACK character from the buffer
-      receivedACK();
-    }
-    // Check for 0xFEED command
-    else
-    {
-      uint16_t command = 0;
-      command |= (serial.read() << 8); // Read the first byte
-      if (serial.available() > 0) 
-      {
-        command |= serial.read(); // Read the second byte
-
-        if (command == RESEND_ALL_COMMAND)
-        {
-          handleResendRequest();
-        }
-      }
-    }
-  }
-}
-
-void SerialDataLink::handleTransmissionTimeout() 
-{
-  // Logic for handling transmission timeout
-  // For example: Retry transmission, set error flag, etc.
-  transmissionError = true;
-  isTransmitting = false;
-}
-
-void SerialDataLink::handleResendRequest()
-{
-  for (uint8_t i = 0; i < dataArraySize; ++i)
-  {
-    dataUpdated[i] = true;
-  }
-}
-
-bool SerialDataLink::checkNewData(bool resetFlag) {
-  bool currentStatus = newData;
-  if (resetFlag && newData) {
-    newData = false;
-  }
-  return currentStatus;
-}
-
-int16_t SerialDataLink::readData(uint8_t index) {
-  if (index < dataArraySize) {
-    return dataArray[index];
-  } else {
-    // Handle the case where the index is out of bounds
-    // You could return a special error value or handle it in another way
-    return -1; // For example, returning -1 as an error indication
-  }
-}
-
-void SerialDataLink::read()
-{
-  while (serial.available()) 
-  {
-    //Serial.print(".");
-    if (millis() - lastHeaderTime > PACKET_TIMEOUT  && receiveBufferIndex > 0) 
-    {
-      // Timeout occurred, reset buffer and pointer
-      receiveBufferIndex = 0;
-      readError = true;
-    }
-    uint8_t incomingByte = serial.read();
-    switch (receiveBufferIndex) {
-      case 0: // Looking for the header
-        if (incomingByte == headerChar) 
-        {
-          lastHeaderTime = millis();
-          receiveBuffer[receiveBufferIndex] = incomingByte;
-          receiveBufferIndex++;
-        }
-        break;
-
-      case 1: // Looking for the address
-        if (incomingByte == intendedAddress) {
-          receiveBuffer[receiveBufferIndex] = incomingByte;
-          receiveBufferIndex++;
-        } else {
-          // Address mismatch, reset to look for a new packet
-          receiveBufferIndex = 0;
-        }
-        break;
-
-      default:
-        // Normal data handling
-        receiveBuffer[receiveBufferIndex] = incomingByte;
-        receiveBufferIndex++;
-        
-        if (isCompletePacket()) {
-          processPacket();
-          receiveBufferIndex = 0; // Reset for the next packet
-        }
-
-        // Check for buffer overflow
-        if (receiveBufferIndex >= receiveBufferSize) {
-          // Handle overflow
-          receiveBufferIndex = 0;
-        }
-        break;
-    }
-  }
-}
-
-
-
-bool SerialDataLink::isCompletePacket() {
-  // Ensure there are enough bytes for EOT + 2-byte CRC
-  if (receiveBufferIndex >= 3) {
-    // Check if the third-last byte is the EOT character
-    if (receiveBuffer[receiveBufferIndex - 3] == eotChar) {
-      // The last three bytes are expected to be EOT + CRC (2 bytes)
-      return true;
-    }
-  }
-  return false;
-}
-
-bool SerialDataLink::checkCRC() 
-{
-  if (receiveBufferIndex < 3) 
-  {
-    // Not enough data for CRC check
-    return false;
-  }
-
-  // Extract CRC from the last two bytes of the packet
-  uint16_t receivedCrc = (uint16_t(receiveBuffer[receiveBufferIndex - 2]) << 8) 
-                         | uint16_t(receiveBuffer[receiveBufferIndex - 1]);
-
-  // Calculate CRC for the received data (excluding the CRC bytes themselves)
-  uint16_t calculatedCrc = calculateCRC16(receiveBuffer, receiveBufferIndex - 2);
-
-  return receivedCrc == calculatedCrc;
-}
-
-void SerialDataLink::processPacket() 
-{
-  if (!checkCRC()) {
-    // CRC check failed, handle the error
-    readError = true;
-    return;
-  }
-
-  // Start from index 2 to skip the SOT and ADDRESS characters
-  uint8_t i = 2; 
-
-  // Check if the next character is not the EOT character
-  while (receiveBuffer[i] != eotChar) {
-    uint8_t arrayID = receiveBuffer[i++];
-    
-    // Make sure there's enough data for a complete int16 (2 bytes)
-    if (i + 1 >= receiveBufferIndex) {
-      readError = true;
-      return; // Incomplete packet or buffer overflow
-    }
-
-    // Combine the next two bytes into an int16 value
-    int16_t value = (int16_t(receiveBuffer[i]) << 8) | int16_t(receiveBuffer[i + 1]);
-    i += 2;
-
-    // Handle the array ID and value here
-    // For example, updating the corresponding value in dataArray
-    if (arrayID < dataArraySize) {
-      dataArray[arrayID] = value;
-    } else {
-      // Handle invalid array ID
-      readError = true;
-      return;
-    }
-    newData = true;
-    sendACK();
-  }
-
-  // Post-processing after successfully reading the packet
-  // For example, setting flags or calling callbacks
-}
-
-
-void SerialDataLink::sendACK() 
-{
-  serial.write(ackChar);
-}
-
-bool SerialDataLink::checkReadError(bool reset) 
-{
-  bool error = readError;
-  if (reset) {
-    readError = false;
-  }
-  return error;
-}
 
 uint16_t SerialDataLink::calculateCRC16(const uint8_t* data, size_t length)
 {

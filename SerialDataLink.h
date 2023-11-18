@@ -1,14 +1,3 @@
- // SerialDataLink.h
- 
- /**
- * @file SerialDataLink.h
- * @brief Header file for the SerialDataLink library, used for reliable serial communication.
- *
- * This library provides functionalities for serial communication between Arduino devices,
- * including packet construction, data transmission and reception, CRC checking, and error handling.
- */
-
-
 #ifndef SERIALDATALINK_H
 #define SERIALDATALINK_H
 
@@ -16,106 +5,121 @@
 #include <Streaming.h>
 #include <PString.h>
 
-/**
- * @class SerialDataLink
- * @brief Class providing serial communication capabilities.
- *
- * SerialDataLink is a class that facilitates serial communication between Arduino devices.
- * It includes features like CRC checking for data integrity, packet construction, and error handling.
- */
-
-class SerialDataLink
-{
+class SerialDataLink {
 public:
+    // Constructor
+    SerialDataLink(Stream &serial, uint8_t transmitID, uint8_t receiveID, uint8_t maxIndexTX, uint8_t maxIndexRX, bool enableRetransmit = false);
 
-     /**
-     * @brief Construct a new Serial Data Link object.
-     * 
-     * @param serial Reference to the serial stream.
-     * @param address Device address in the network.
-     * @param maxIndex Maximum index for data array.
-     * @param enableRetransmit Flag to enable or disable automatic retransmission.
-     */
-  SerialDataLink(Stream &serial, uint8_t address, uint8_t maxIndex,  bool enableRetransmit = false);
-     /**
-     * @brief Main method to be called in the loop to handle data transmission.
-     */
-  void run();
-     /**
-     * @brief Updates the data at a specified index.
-     * 
-     * @param index Index of the data to be updated.
-     * @param value New value to update.
-     */
-  void updateData(uint8_t index, int16_t value);
-  bool checkTransmissionError(bool resetFlag);
-  void setHeaderChar(char header);
-  void setEOTChar(char eot);
-  void setACKChar(char ack);
-     /**
-     * @brief Main method to be called in the loop to handle data reception.
-     */
-  void read();
-  int16_t readData(uint8_t index);
-  bool checkNewData(bool resetFlag);
-  bool checkReadError(bool reset);
+    // Method to handle data transmission and reception
+    void run();
+    
+    void updateData(uint8_t index, int16_t value);
 
-  void setUpdateInterval(unsigned long interval);
-  void setAckTimeout(unsigned long timeout);
-  void setPacketTimeout(unsigned long timeout);
-  
+     // Check if new data has been received
+    bool checkNewData(bool resetFlag);
+    int16_t getReceivedData(uint8_t index);
+
+    // Check for  errors
+    bool checkTransmissionError(bool resetFlag);
+    bool checkReadError(bool resetFlag);
+
+    // Setter methods for various parameters and special characters
+    
+    void setUpdateInterval(unsigned long interval);
+    void setAckTimeout(unsigned long timeout);
+    void setPacketTimeout(unsigned long timeout);
+
+    void setHeaderChar(char header);
+    void setEOTChar(char eot);
 
 private:
-  static const uint8_t bufferSize = 128;  
-  uint8_t buffer[bufferSize];
-  uint8_t bufferIndex;
-  uint8_t txBufferIndex=0;
-  Stream &serial;
+  enum class DataLinkState 
+  {
+    Idle,
+    Transmitting,
+    WaitingForAck,
+    Receiving,
+    Error
+  };
 
-  static const uint8_t dataArraySize = 20;  
-  unsigned long lastUpdateTime[dataArraySize];
-  int16_t dataArray[dataArraySize];
-  
-  bool dataUpdated[dataArraySize];
-  unsigned long updateInterval = 500; 
-  unsigned long lastTransmissionTime;
-  unsigned long ACK_TIMEOUT = 100; 
+    DataLinkState currentState;
+    Stream &serial;
+    uint8_t transmitID;
+    uint8_t receiveID;
 
-  const uint8_t maxIndex;
-  uint8_t intendedAddress;
-  bool isTransmitting;
-  bool retransmitEnabled;
-  bool transmissionError = false;
+    // Separate max indices for TX and RX
+    const uint8_t maxIndexTX;
+    const uint8_t maxIndexRX;
 
-  char headerChar = '<';  
-  char eotChar = '>';     
-  char ackChar = 0x06;    
 
-  static const uint16_t RESEND_ALL_COMMAND = 0xFEED;
+    // Buffer and state management
+    static const uint8_t txBufferSize = 128; // Adjust size as needed
+    static const uint8_t rxBufferSize = 128; // Adjust size as needed
 
-  void handleTransmissionTimeout();
-  void constructPacket();
-  bool sendNextByte();
-  void addToBuffer(uint8_t byte);
-  void checkForCommands();
-  void handleResendRequest();
-  void receivedACK();
+    uint8_t txBuffer[txBufferSize];
+    uint8_t rxBuffer[rxBufferSize];
 
-  bool isCompletePacket();
-  void processPacket();
-  void sendACK();
-  
-  bool checkCRC();
-  
-  uint16_t calculateCRC16(const uint8_t* data, size_t length);
+    uint8_t txBufferIndex;
+    uint8_t rxBufferIndex;
+    uint8_t sendBufferIndex = 0;
+    
+    bool isTransmitting;
+    bool transmissionComplete = false;
+    bool isReceiving;
+    bool readComplete = false;
+    bool retransmitEnabled;
+    bool transmissionError = false;
+    bool readError = false;
 
-  static const uint8_t receiveBufferSize = 128;
-  uint8_t receiveBuffer[receiveBufferSize];
-  uint8_t receiveBufferIndex = 0;
-  unsigned long lastHeaderTime = 0;
-  unsigned long PACKET_TIMEOUT = 150; // Timeout in milliseconds
-  bool readError = false;
-  bool newData = false;
+    // Data arrays and update management
+
+    static const uint8_t dataArraySizeTX = 20;  // Adjust size as needed for TX
+    static const uint8_t dataArraySizeRX = 20;  // Adjust size as needed for RX
+
+    int16_t dataArrayTX[dataArraySizeTX];
+    int16_t dataArrayRX[dataArraySizeRX];
+    bool    dataUpdated[dataArraySizeTX];
+    unsigned long lastSent[dataArraySizeTX];
+    
+    unsigned long updateInterval = 500;
+    unsigned long ACK_TIMEOUT = 100;
+    unsigned long PACKET_TIMEOUT = 100; // Timeout in milliseconds
+
+    // Special characters for packet framing
+    char headerChar = '<';
+    char eotChar = '>';
+    
+    static const uint8_t ACK_CODE = 0x06;        // Standard acknowledgment
+    static const uint8_t ACK_RTT_CODE = 0x07;    // Acknowledgment with request to transmit
+    static const uint8_t NACK_CODE = 0x08;       // Negative acknowledgment
+    static const uint8_t NACK_RTT_CODE = 0x09;   // Negative acknowledgment with request to transmit
+
+    
+
+    // Internal methods for packet construction, transmission, and reception
+    bool shouldTransmit();
+    void constructPacket();
+    void addToTxBuffer(uint8_t byte);
+    bool sendNextByte();
+    bool ackReceived();
+    bool ackTimeout(); 
+    
+      // Internal methods for reception
+    void read();
+    void handleResendRequest();
+    bool isCompletePacket();
+    void processPacket();
+    void sendACK();
+    bool checkCRC();
+    uint16_t calculateCRC16(const uint8_t* data, size_t length);
+
+    unsigned long lastTransmissionTime;
+    bool  requestToSend = false;
+    unsigned long lastHeaderTime = 0;
+    bool newData = false;
+    bool needToACK = false;
+    bool needToNACK = false;
+    uint8_t eotPosition = 0;
 };
 
-#endif
+#endif // SERIALDATALINK_H
