@@ -9,22 +9,6 @@ SerialDataLink is a half-duplex serial variables transfer library for Arduino, d
 - **Error Checking**: Incorporates transmission and reception error checks.
 - **Flexible Data Handling**: Transmits only the variables which values have change or reached update time..
 
-## Installation
-
-1. Download the library as a zip.
-2. In the Arduino IDE, navigate to Sketch > Include Library > Add .ZIP Library.
-3. Select the downloaded zip file.
-4. Restart the Arduino IDE.
-
-## Usage
-
-Include the `SerialDataLink` library in your Arduino sketch and follow these steps:
-
-1. Define `SerialDataLink` objects for each communication channel.
-2. Initialize the objects with appropriate parameters.
-3. Call the `run()` method regularly within the `loop()` function.
-4. Use other public methods as required for data transmission and reception.
-
 ### Example
 
 ```
