@@ -12,22 +12,113 @@ SerialDataLink is a half-duplex serial variables transfer library for Arduino, d
 ### Example
 
 ```
-#include "SerialDataLink.h"
+#include <SerialDataLink.h>
 
-// Define SerialDataLink object
-SerialDataLink dataLink(Serial2, 1, 0, 10, 10);
+HardwareSerial Serial2(PA3, PA2); // RX, TX
+HardwareSerial Serial3(PB11, PB10); // RX, TX
+
+
+#define PRIMARY_VARS_SEND     20
+#define SECONDARY_VARS_SEND   5
+
+#define PRIMARY_VARS_RECV     SECONDARY_VARS_SEND
+#define SECONDARY_VARS_RCV    PRIMARY_VARS_SEND
+
+//                                              /*     Sending Vars       Receiving Vars */
+// Create two instances of SerialDataLink
+SerialDataLink dataLinkPrimary(Serial2, 0x01 ,0 ,    PRIMARY_VARS_SEND ,  PRIMARY_VARS_RECV);
+SerialDataLink dataLinkSecondary (Serial3, 0,  0x01, SECONDARY_VARS_SEND ,SECONDARY_VARS_RCV);
+
+#define LED   PC13
 
 void setup() {
-  // Initialize Serial and DataLink
-  Serial.begin(115200);
-  Serial2.begin(9600);
+  Serial.begin(115200);    // Start the Serial Monitor
+  Serial2.begin(9600); // Initialize Serial2 for transmission
+  Serial3.begin(9600); // Initialize Serial3 for reception
+
+  pinMode(LED,OUTPUT);
+
+
+
+  // Initialize data to be sent
+  for (uint8_t i = 0; i < PRIMARY_VARS_SEND; i++) {
+    dataLinkPrimary.updateData(i, 3+i*3 ); // Example initial values
+  }
+  for (uint8_t i = 0; i < SECONDARY_VARS_SEND; i++) {
+    dataLinkSecondary.updateData(i, 10 + i*5 ); // Example initial values
+  }
 }
 
-void loop() {
-  // Regularly call run() method
-  dataLink.run();
 
-  // Additional code...
+void loop() {
+  // Update data every second
+  
+  static unsigned long lastUpdate = 0;
+  static unsigned long lastCycle = 0;
+
+  
+  if (millis() - lastUpdate >= 3000) 
+  {
+    digitalToggle(LED);
+    Serial.println("Hello from stm32F105");
+    lastUpdate = millis();
+    for (uint8_t i = 0; i < PRIMARY_VARS_SEND; i++) {
+      dataLinkPrimary.updateData(i,i*20 /*random(100)*/); // Update with random values
+    }
+    for (uint8_t i = 0; i < SECONDARY_VARS_SEND; i++) {
+      dataLinkSecondary.updateData(i,100+i*50 /*random(100)*/); // Update with random values
+    }
+  }
+
+  // Run transmit and receive methods every millisecond
+  
+  static unsigned long lastMillis = 0;
+  static unsigned long last100Millis = 0;
+  
+  if (millis() != lastMillis ) 
+  {
+    lastMillis = millis();
+    dataLinkPrimary.run();
+    dataLinkSecondary.run();
+  }  
+
+  if (millis() - last100Millis >= 100) 
+  {
+    last100Millis = millis();
+    bool sendError = dataLinkPrimary.checkTransmissionError(true);
+    if (sendError) Serial.println("SEND error - Primary");
+    bool readError = dataLinkSecondary.checkReadError(true);
+    if (readError) Serial.println("read error - Secondary");
+
+    sendError = dataLinkSecondary.checkTransmissionError(true);
+    if (sendError) Serial.println("SEND error - Secondary");
+    readError = dataLinkPrimary.checkReadError(true);
+    if (readError) Serial.println("read error - Primary");
+  }
+
+   //Check for received data
+  if (dataLinkSecondary.checkNewData(true)) 
+  {
+    Serial.println("New data received: Secondary");
+    for (uint8_t i = 0; i < SECONDARY_VARS_RCV; i++) 
+    {
+      Serial.print("Index ");
+      Serial.print(i);
+      Serial.print(": ");
+      Serial.println(dataLinkSecondary.getReceivedData(i));
+    }
+  }
+  if (dataLinkPrimary.checkNewData(true)) 
+  {
+    Serial.println("New data received: Primary");
+    for (uint8_t i = 0; i < PRIMARY_VARS_RECV; i++) 
+    {
+      Serial.print("Index ");
+      Serial.print(i);
+      Serial.print(": ");
+      Serial.println(dataLinkPrimary.getReceivedData(i));
+    }
+  }
 }
 ```
 
