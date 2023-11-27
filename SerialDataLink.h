@@ -50,6 +50,8 @@
 
 #include <Arduino.h>
 
+
+
 class SerialDataLink {
 public:
     // Constructor
@@ -76,6 +78,7 @@ public:
 
     void setHeaderChar(char header);
     void setEOTChar(char eot);
+    void muteACK(bool mute);
 
 private:
   enum class DataLinkState 
@@ -115,6 +118,7 @@ private:
     bool retransmitEnabled;
     bool transmissionError = false;
     bool readError = false;
+    bool muteAcknowledgement  = false;
 
     // Data arrays and update management
 
@@ -125,10 +129,15 @@ private:
     int16_t dataArrayRX[dataArraySizeRX];
     bool    dataUpdated[dataArraySizeTX];
     unsigned long lastSent[dataArraySizeTX];
+
+    // times in milliseconds
+    unsigned long updateInterval = 1000;
+    unsigned long ACK_TIMEOUT = 200;
+    unsigned long PACKET_TIMEOUT = 200; 
+    unsigned long stateChangeTimeout = 300;
     
-    unsigned long updateInterval = 500;
-    unsigned long ACK_TIMEOUT = 100;
-    unsigned long PACKET_TIMEOUT = 100; // Timeout in milliseconds
+    unsigned long lastStateChangeTime = 0;
+    
 
     // Special characters for packet framing
     char headerChar = '<';
@@ -147,7 +156,8 @@ private:
     void addToTxBuffer(uint8_t byte);
     bool sendNextByte();
     bool ackReceived();
-    bool ackTimeout(); 
+    bool ackTimeout();
+    void updateState(DataLinkState newState);  
     
       // Internal methods for reception
     void read();

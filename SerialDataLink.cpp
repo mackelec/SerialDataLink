@@ -49,9 +49,12 @@ union Convert
   };
 }convert;
 
-
-
-
+/*
+#define SET_PA6() (GPIOA->BSRR = GPIO_BSRR_BS6)
+#define CLEAR_PA6() (GPIOA->BSRR = GPIO_BSRR_BR6)
+// Macro to toggle PA6
+#define TOGGLE_PA6() (GPIOA->ODR ^= GPIO_ODR_ODR6)
+*/
 
 // Constructor
 SerialDataLink::SerialDataLink(Stream &serial, uint8_t transmitID, uint8_t receiveID, uint8_t maxIndexTX, uint8_t maxIndexRX, bool enableRetransmit)
@@ -124,8 +127,31 @@ bool SerialDataLink::checkNewData(bool resetFlag) {
   return currentStatus;
 }
 
+void SerialDataLink::muteACK(bool mute)
+{
+  muteAcknowledgement = mute;
+}
+
 void SerialDataLink::run() 
 {
+    unsigned long currentTime = millis();
+    static DataLinkState oldstate;
+
+    
+    // Check if state has not changed for a prolonged period
+    if (oldstate != currentState)
+    {
+      lastStateChangeTime = currentTime;
+      oldstate = currentState;
+    }
+    if ((currentTime - lastStateChangeTime) > stateChangeTimeout) {
+        // Reset the state to Idle and perform necessary cleanup
+        currentState = DataLinkState::Idle;
+        // Perform any additional cleanup or reinitialization here
+        // ...
+
+        lastStateChangeTime = currentTime; // Reset the last state change time
+    }
     switch (currentState) 
     {
       case DataLinkState::Idle:
@@ -144,9 +170,13 @@ void SerialDataLink::run()
           } 
           else 
           {
-              
               constructPacket(); // Construct a new packet if not currently transmitting
               
+              if (muteAcknowledgement  && (needToACK || needToNACK))
+              {
+                needToACK = false;
+                needToNACK = false;
+              }
               uint8_t ack; 
               // now it is known which acknoledge need sending since last Reception
               if (needToACK)
@@ -215,6 +245,15 @@ void SerialDataLink::run()
     }
 }
 
+void SerialDataLink::updateState(DataLinkState newState) 
+{
+    if (currentState != newState) 
+    {
+        currentState = newState;
+        lastStateChangeTime = millis();
+    }
+}
+
 bool SerialDataLink::shouldTransmit() 
 {
     // Priority condition: Device with transmitID = 1 and receiveID = 0 has the highest priority
@@ -232,13 +271,11 @@ void SerialDataLink::constructPacket()
   {
     lastTransmissionTime = millis();
     txBufferIndex = 0; // Reset the TX buffer index
-
     addToTxBuffer(headerChar);
     addToTxBuffer(transmitID);
     addToTxBuffer(0); // EOT position - place holder
     unsigned long currentTime = millis();
     int count = txBufferIndex;
-
     for (uint8_t i = 0; i < maxIndexTX; i++)
     {
       if (dataUpdated[i] || (currentTime - lastSent[i] >= updateInterval))
@@ -252,13 +289,13 @@ void SerialDataLink::constructPacket()
         lastSent[i] = currentTime; // Update the last sent time for this index
       }
     }
-
+    
     if (count == txBufferIndex)
     {
       // No data was added to the buffer, so no need to send a packet
       return;
     }
-
+    
     addToTxBuffer(eotChar);
     //-----  assign EOT position 
     txBuffer[2] = txBufferIndex - 1;
@@ -315,6 +352,7 @@ bool SerialDataLink::ackReceived()
         if (nextByte == headerChar) 
         {
             requestToSend = true;
+            transmissionError = true;
             return false;
         }
 
@@ -335,12 +373,11 @@ bool SerialDataLink::ackReceived()
               requestToSend = true;
           case NACK_CODE:
               transmissionError = true;
-              return false;
+              return true;
       
           default:
               break;
       }
-
     }
 
     return false; // No ACK, NACK, or new packet received
@@ -349,7 +386,9 @@ bool SerialDataLink::ackReceived()
 bool SerialDataLink::ackTimeout() 
 {
     // Check if the current time has exceeded the last transmission time by the ACK timeout period
-    if (millis() - lastTransmissionTime > ACK_TIMEOUT) {
+    
+    if (millis() - lastTransmissionTime > ACK_TIMEOUT) 
+    {
         return true;  // Timeout occurred
     }
     return false;  // No timeout
@@ -360,9 +399,10 @@ bool SerialDataLink::ackTimeout()
 void SerialDataLink::read()
 {
   if (maxIndexRX < 1) return;
-  if (serial.available()) 
+  int count = 0;
+  while (serial.available() && count < 10)
   {
-    //Serial.print(".");
+    count++;
     if (millis() - lastHeaderTime > PACKET_TIMEOUT  && rxBufferIndex > 0) 
     {
       // Timeout occurred, reset buffer and pointer
