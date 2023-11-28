@@ -126,7 +126,7 @@ void loop() {
 ```
 ## Constructor
 
-### `SerialDataLink(Stream &serial, uint8_t transmitID, uint8_t receiveID, uint8_t maxIndexTX, uint8_t maxIndexRX, bool enableRetransmit)`
+##### `SerialDataLink(Stream &serial, uint8_t transmitID, uint8_t receiveID, uint8_t maxIndexTX, uint8_t maxIndexRX, bool enableRetransmit)`
 
 This is the constructor for the `SerialDataLink` class. It initializes the communication parameters with the following details:
 
