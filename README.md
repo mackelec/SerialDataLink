@@ -124,6 +124,18 @@ void loop() {
   }
 }
 ```
+## Constructor
+
+### `SerialDataLink(Stream &serial, uint8_t transmitID, uint8_t receiveID, uint8_t maxIndexTX, uint8_t maxIndexRX, bool enableRetransmit)`
+
+This is the constructor for the `SerialDataLink` class. It initializes the communication parameters with the following details:
+
+- `serial`: The serial stream used for communication.
+- `transmitID`: The identifier used for transmission.
+- `receiveID`: The identifier used for receiving data.
+- `maxIndexTX`: The maximum index that can be used for transmitting data.
+- `maxIndexRX`: The maximum index that can be used for receiving data.
+- `enableRetransmit`: A boolean flag that enables retransmission if set to `true`.
 
 ## Public Methods
 
