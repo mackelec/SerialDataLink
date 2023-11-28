@@ -140,7 +140,7 @@ void loop() {
 | `setUpdateInterval` | `unsigned long interval` | Sets the interval for data updates. |
 | `setAckTimeout` | `unsigned long timeout` | Sets the timeout for acknowledgments. |
 | `setPacketTimeout` | `unsigned long timeout` | Sets the timeout for packet reception. |
-| `muteACK` | Mutes or unmutes the acknowledgment messages. | `bool mute`: Set to `true` to mute ACK, `false` to enable. | `void` |
+| `muteACK` | `bool mute` | Mutes or unmutes the acknowledgment messages |
 | `setHeaderChar` | `char header` | Sets the character used to denote the start of a packet. |
 | `setEOTChar` | `char eot` | Sets the character used to denote the end of a packet. |
 
