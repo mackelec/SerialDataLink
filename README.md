@@ -129,9 +129,7 @@ void loop() {
 
 | Method | Description and Parameters |
 | ------ | --------------------------- |
-| ```SerialDataLink(Stream &serial,uint8_t transmitID,
-                    uint8_t receiveID, uint8_t maxIndexTX,
-                    uint8_t maxIndexRX, bool enableRetransmit)``` | Constructor. Initializes communication parameters. <ul><li>`serial`: Serial stream for communication.</li><li>`transmitID`: ID for transmission.</li><li>`receiveID`: ID for receiving data.</li><li>`maxIndexTX`: Maximum index for transmission.</li><li>`maxIndexRX`: Maximum index for reception.</li><li>`enableRetransmit`: Flag to enable retransmission.</li></ul> |Serial stream for communication. <br> - `transmitID`: ID for transmission. <br> - `receiveID`: ID for receiving data. <br> - `maxIndexTX`: Maximum index for transmission. <br> - `maxIndexRX`: Maximum index for reception. <br> - `enableRetransmit`: Flag to enable retransmission. |
+
 | `void run()` | Main method for data transmission and reception. |
 | `void updateData(uint8_t index, int16_t value)` | Updates data to be transmitted. <br> - `index`: Data position index. <br> - `value`: Data value to send. |
 | `int16_t getReceivedData(uint8_t index)` | Retrieves received data. <br> - `index`: Index of data to retrieve. |
