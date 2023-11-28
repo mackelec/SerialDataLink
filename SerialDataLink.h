@@ -68,6 +68,7 @@ public:
 
     // Check for  errors
     bool checkTransmissionError(bool resetFlag);
+    int getLastAcknowledge(bool resetFlag);
     bool checkReadError(bool resetFlag);
 
     // Setter methods for various parameters and special characters
@@ -84,9 +85,12 @@ private:
   enum class DataLinkState 
   {
     Idle,
+    WaitTobuildPacket,
     Transmitting,
     WaitingForAck,
     Receiving,
+    SendingAck,
+    Wait,
     Error
   };
 
@@ -117,6 +121,7 @@ private:
     bool readComplete = false;
     bool retransmitEnabled;
     bool transmissionError = false;
+    int  lastAcknowledgeStatus = 0;
     bool readError = false;
     bool muteAcknowledgement  = false;
 
