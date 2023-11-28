@@ -135,10 +135,12 @@ void loop() {
 | `getReceivedData` | `uint8_t index` | Retrieves data received from the serial link. |
 | `checkNewData` | `bool resetFlag` | Checks if new data has been received. |
 | `checkTransmissionError` | `bool resetFlag` | Checks for transmission errors. |
+| `getLastAcknowledge` | Gets the status of the last acknowledgment. | `bool resetFlag`: Set to `true` to reset the acknowledgment status after checking. | `int`: Returns the last acknowledgment status. |
 | `checkReadError` | `bool resetFlag` | Checks for read errors. |
 | `setUpdateInterval` | `unsigned long interval` | Sets the interval for data updates. |
 | `setAckTimeout` | `unsigned long timeout` | Sets the timeout for acknowledgments. |
 | `setPacketTimeout` | `unsigned long timeout` | Sets the timeout for packet reception. |
+| `muteACK` | Mutes or unmutes the acknowledgment messages. | `bool mute`: Set to `true` to mute ACK, `false` to enable. | `void` |
 | `setHeaderChar` | `char header` | Sets the character used to denote the start of a packet. |
 | `setEOTChar` | `char eot` | Sets the character used to denote the end of a packet. |
 
