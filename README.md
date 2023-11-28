@@ -128,21 +128,20 @@ void loop() {
 ## Public Methods
 
 | Method | Description and Parameters |
-| ------ | --------------------------- |
-
+| ------ | -------------------------- |
 | `void run()` | Main method for data transmission and reception. |
-| `void updateData(uint8_t index, int16_t value)` | Updates data to be transmitted. <br> - `index`: Data position index. <br> - `value`: Data value to send. |
-| `int16_t getReceivedData(uint8_t index)` | Retrieves received data. <br> - `index`: Index of data to retrieve. |
-| `bool checkNewData(bool resetFlag)` | Checks if new data is received. <br> - `resetFlag`: Clears new data flag if true. |
-| `bool checkTransmissionError(bool resetFlag)` | Checks for transmission errors. <br> - `resetFlag`: Resets error flag if true. |
-| `int getLastAcknowledge(bool resetFlag)` | Gets the status of the last acknowledgment. <br> - `resetFlag`: Resets acknowledgment status if true. |
-| `bool checkReadError(bool resetFlag)` | Checks for read errors. <br> - `resetFlag`: Resets error flag if true. |
-| `void setUpdateInterval(unsigned long interval)` | Sets the data update interval. <br> - `interval`: Time in milliseconds. |
-| `void setAckTimeout(unsigned long timeout)` | Sets the acknowledgment timeout. <br> - `timeout`: Timeout duration in milliseconds. |
-| `void setPacketTimeout(unsigned long timeout)` | Sets the packet reception timeout. <br> - `timeout`: Timeout period in milliseconds. |
-| `void muteACK(bool mute)` | Mutes or unmutes acknowledgment messages. <br> - `mute`: Mute flag. |
-| `void setHeaderChar(char header)` | Sets the start-of-packet character. <br> - `header`: Character for packet start. |
-| `void setEOTChar(char eot)` | Sets the end-of-transmission character. <br> - `eot`: Character for end of transmission. |
+| `void updateData(uint8_t index, int16_t value)` | Updates data to be transmitted.<br> - `index`: Data position index.<br> - `value`: Data value to send. |
+| `int16_t getReceivedData(uint8_t index)` | Retrieves received data.<br> - `index`: Index of data to retrieve. |
+| `bool checkNewData(bool resetFlag)` | Checks if new data is received.<br> - `resetFlag`: Clears new data flag if true. |
+| `bool checkTransmissionError(bool resetFlag)` | Checks for transmission errors.<br> - `resetFlag`: Resets error flag if true. |
+| `int getLastAcknowledge(bool resetFlag)` | Gets the status of the last acknowledgment.<br> - `resetFlag`: Resets acknowledgment status if true. |
+| `bool checkReadError(bool resetFlag)` | Checks for read errors.<br> - `resetFlag`: Resets error flag if true. |
+| `void setUpdateInterval(unsigned long interval)` | Sets the data update interval.<br> - `interval`: Time in milliseconds. |
+| `void setAckTimeout(unsigned long timeout)` | Sets the acknowledgment timeout.<br> - `timeout`: Timeout duration in milliseconds. |
+| `void setPacketTimeout(unsigned long timeout)` | Sets the packet reception timeout.<br> - `timeout`: Timeout period in milliseconds. |
+| `void muteACK(bool mute)` | Mutes or unmutes acknowledgment messages.<br> - `mute`: Mute flag. |
+| `void setHeaderChar(char header)` | Sets the start-of-packet character.<br> - `header`: Character for packet start. |
+| `void setEOTChar(char eot)` | Sets the end-of-transmission character.<br> - `eot`: Character for end of transmission. |
 
 
 
