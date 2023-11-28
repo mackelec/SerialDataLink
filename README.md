@@ -127,22 +127,23 @@ void loop() {
 
 ## Public Methods
 
-| Method | Parameters | Description |
-| ------ | ---------- | ----------- |
-| `SerialDataLink` | Stream &serial, uint8_t transmitID, uint8_t receiveID, uint8_t maxIndexTX, uint8_t maxIndexRX, bool enableRetransmit | Constructor to initialize the communication parameters. |
-| `run` | - | Main method to be called frequently to handle data transmission and reception. |
-| `updateData` | uint8_t index, int16_t value | Updates data to be transmitted. |
-| `getReceivedData` | uint8_t index | Retrieves data received from the serial link. |
-| `checkNewData` | bool resetFlag | Checks if new data has been received. resetFlag will, if true, clear this flag. |
-| `checkTransmissionError` | bool resetFlag | Checks for transmission errors. |
-| `getLastAcknowledge` | bool resetFlag | Gets the status of the last acknowledgment. resetFlag: Set to true to reset the acknowledgment status after checking. |
-| `checkReadError` | bool resetFlag | Checks for read errors. |
-| `setUpdateInterval` | unsigned long interval | Sets the interval for data updates. |
-| `setAckTimeout` | unsigned long timeout | Sets the timeout for acknowledgments. |
-| `setPacketTimeout` | unsigned long timeout | Sets the timeout for packet reception. |
-| `muteACK` | bool mute | Mutes or unmutes the acknowledgment messages. |
-| `setHeaderChar` | char header | Sets the character used to denote the start of a packet. |
-| `setEOTChar` | char eot | Sets the character used to denote the end of a packet. |
+| Method | Description and Parameters |
+| ------ | --------------------------- |
+| `SerialDataLink(Stream &serial, uint8_t transmitID, uint8_t receiveID, uint8_t maxIndexTX, uint8_t maxIndexRX, bool enableRetransmit)` | Constructor. Initializes communication parameters. <br> - `serial`: Serial stream for communication. <br> - `transmitID`: ID for transmission. <br> - `receiveID`: ID for receiving data. <br> - `maxIndexTX`: Maximum index for transmission. <br> - `maxIndexRX`: Maximum index for reception. <br> - `enableRetransmit`: Flag to enable retransmission. |
+| `void run()` | Main method for data transmission and reception. |
+| `void updateData(uint8_t index, int16_t value)` | Updates data to be transmitted. <br> - `index`: Data position index. <br> - `value`: Data value to send. |
+| `int16_t getReceivedData(uint8_t index)` | Retrieves received data. <br> - `index`: Index of data to retrieve. |
+| `bool checkNewData(bool resetFlag)` | Checks if new data is received. <br> - `resetFlag`: Clears new data flag if true. |
+| `bool checkTransmissionError(bool resetFlag)` | Checks for transmission errors. <br> - `resetFlag`: Resets error flag if true. |
+| `int getLastAcknowledge(bool resetFlag)` | Gets the status of the last acknowledgment. <br> - `resetFlag`: Resets acknowledgment status if true. |
+| `bool checkReadError(bool resetFlag)` | Checks for read errors. <br> - `resetFlag`: Resets error flag if true. |
+| `void setUpdateInterval(unsigned long interval)` | Sets the data update interval. <br> - `interval`: Time in milliseconds. |
+| `void setAckTimeout(unsigned long timeout)` | Sets the acknowledgment timeout. <br> - `timeout`: Timeout duration in milliseconds. |
+| `void setPacketTimeout(unsigned long timeout)` | Sets the packet reception timeout. <br> - `timeout`: Timeout period in milliseconds. |
+| `void muteACK(bool mute)` | Mutes or unmutes acknowledgment messages. <br> - `mute`: Mute flag. |
+| `void setHeaderChar(char header)` | Sets the start-of-packet character. <br> - `header`: Character for packet start. |
+| `void setEOTChar(char eot)` | Sets the end-of-transmission character. <br> - `eot`: Character for end of transmission. |
+
 
 
 
